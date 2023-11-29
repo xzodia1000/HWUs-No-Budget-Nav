@@ -52,16 +52,20 @@ class Controller:
         # Flag
         self.flag_turn = 0
         self.light_detected = 0
+        self.is_turning = 0
 
     def turn_right(self):
-        # Adjust these values as needed
-        self.left_motor.setVelocity(5.0)  # Keep the left motor running
-        self.right_motor.setVelocity(0.0)  # Stop the right motor to turn
+       # Adjust these values as needed
+        self.is_turning = True
+        self.flag_turn = 0
+        self.velocity_left = 1.0
+        self.velocity_right = -1.0
 
     def turn_left(self):
         # Adjust these values as needed
-        self.left_motor.setVelocity(0.0)  # Stop the left motor to turn
-        self.right_motor.setVelocity(5.0)  # Keep the right motor running
+        self.velocity_left = 1.0
+        self.velocity_right = -1.0
+
         
     def clip_value(self,value,min_max):
         """
@@ -102,10 +106,15 @@ class Controller:
 
             # Check for Fork and light
             # If true, go left
-            print(self.light_detected)
             if(self.light_detected and np.isclose(self.inputs[0], 0.76, atol=0.1) and np.isclose(self.inputs[1], 0.76, atol=0.1) and np.isclose(self.inputs[2], 0.76, atol=0.1)):
-                print("Fork detected!")
+                print("Turning Left")
                 self.turn_left()
+
+            # Check for Fork and light
+            # If false, go right
+            if((not self.light_detected) and np.isclose(self.inputs[0], 0.76, atol=0.1) and np.isclose(self.inputs[1], 0.76, atol=0.1) and np.isclose(self.inputs[2], 0.76, atol=0.1)):
+                print("Turning Right")
+                self.turn_right()
 
             # Turn
             if(self.flag_turn):
@@ -119,18 +128,20 @@ class Controller:
                     self.flag_turn = 1
                 else:    
                     # Follow the line    
-                    if(self.inputs[0] < self.inputs[1] and self.inputs[0] < self.inputs[2]):
-                        self.velocity_left = 0.5;
-                        self.velocity_right = 1;
-                    elif(self.inputs[1] < self.inputs[0] and self.inputs[1] < self.inputs[2]):
-                        self.velocity_left = 1;
-                        self.velocity_right = 1;    
-                    elif(self.inputs[2] < self.inputs[0] and self.inputs[2] < self.inputs[1]):
-                        self.velocity_left = 1;
-                        self.velocity_right = 0.5;
+                    if (not self.is_turning):
+                        if (self.inputs[0] < self.inputs[1] and self.inputs[0] < self.inputs[2]):
+                            self.velocity_left = 0.5;
+                            self.velocity_right = 1;
+                        elif (self.inputs[1] < self.inputs[0] and self.inputs[1] < self.inputs[2]):
+                            self.velocity_left = 1;
+                            self.velocity_right = 1;
+                        elif (self.inputs[2] < self.inputs[0] and self.inputs[2] < self.inputs[1]):
+                            self.velocity_left = 1;
+                            self.velocity_right = 0.5;
      
         self.left_motor.setVelocity(self.velocity_left)
         self.right_motor.setVelocity(self.velocity_right)
+        self.is_turning = False
 
     def run_robot(self):        
         # Main Loop
