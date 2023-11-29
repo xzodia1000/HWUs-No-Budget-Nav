@@ -53,6 +53,13 @@ class Controller:
         self.flag_turn = 0
         self.light_detected = 0
         self.is_turning = 0
+        self.obstacle_cylinder_flag = False
+        self.obstacle_box_flag = False
+        self.left_cylinder_counter = 0
+        self.left_box_counter = 0
+        self.right_box_counter = 0
+        self.right_cylinder_counter = 0
+        self.crossed_obstacles = False
 
     def turn_right(self):
        # Adjust these values as needed
@@ -66,6 +73,71 @@ class Controller:
         self.velocity_left = 1.0
         self.velocity_right = -1.0
 
+    def avoid_left_cylinder(self):
+        if(self.left_cylinder_counter == 0):
+            self.is_turning = True
+            self.flag_turn = 0
+            self.velocity_left = 2.0
+            self.velocity_right = -2.0
+        elif(self.left_cylinder_counter == 1):
+            self.is_turning = True
+            self.flag_turn = 0
+            self.velocity_left = 2.0
+            self.velocity_right = 2.0
+        elif(self.left_cylinder_counter == 2):
+            self.is_turning = True
+            self.flag_turn = 0
+            self.velocity_left = -1.0
+            self.velocity_right = 1.0
+        elif(self.left_cylinder_counter == 3):
+            self.is_turning = True
+            self.flag_turn = 0
+            self.velocity_left = 2.0
+            self.velocity_right = 2.0
+
+    def avoid_left_box(self):
+        if(self.left_box_counter == 0):
+            self.is_turning = True
+            self.flag_turn = 0
+            self.velocity_left = 2.0
+            self.velocity_right = -2.0
+        elif(self.left_box_counter == 1):
+            self.is_turning = True
+            self.flag_turn = 0
+            self.velocity_left = 2.0
+            self.velocity_right = 2.0
+        elif(self.left_box_counter == 2):
+            self.is_turning = True
+            self.flag_turn = 0
+            self.velocity_left = -1.0
+            self.velocity_right = 1.0
+        elif(self.left_box_counter == 3):
+            self.is_turning = True
+            self.flag_turn = 0
+            self.velocity_left = 2.0
+            self.velocity_right = 2.0
+
+    def avoid_right_box(self):
+        if(self.right_obstacle_counter == 0):
+            self.is_turning = True
+            self.flag_turn = 0
+            self.velocity_left = -2.0
+            self.velocity_right = 2.0
+        elif(self.right_obstacle_counter == 1):
+            self.is_turning = True
+            self.flag_turn = 0
+            self.velocity_left = 4.0
+            self.velocity_right = 4.0
+        elif(self.right_obstacle_counter == 2):
+            self.is_turning = True
+            self.flag_turn = 0
+            self.velocity_left = 1.0
+            self.velocity_right = -1.0
+        elif(self.right_obstacle_counter == 3):
+            self.is_turning = True
+            self.flag_turn = 0
+            self.velocity_left = 3.0
+            self.velocity_right = 3.0
         
     def clip_value(self,value,min_max):
         """
@@ -93,7 +165,11 @@ class Controller:
             if(np.max(self.inputs[3:11]) > 0.4):
                 # Time
                 time = datetime.now()
-                #print("({} - {}) Object or walls detected!".format(time.second, time.microsecond))
+                print("({} - {}) Object or walls detected with values {}".format(time.second, time.microsecond, self.inputs[11]))
+                if(self.inputs[11] > 0.15):
+                    self.obstacle_cylinder_flag = True
+                elif (self.inputs[11] > 0.08):
+                    self.obstacle_box_flag = True
             # Check for Light 
             if(self.inputs[3] == 0 and self.inputs[4] == 0 and self.inputs[9] == 0 and self.inputs[10] == 0):
                 self.light_detected = 1
@@ -116,13 +192,63 @@ class Controller:
                 print("Turning Right")
                 self.turn_right()
 
+            if (self.light_detected and self.obstacle_cylinder_flag):
+                self.avoid_left_cylinder()
+                self.left_cylinder_counter += 1
+
+                if(np.min(self.inputs[0:3]) < 0.3 and self.left_cylinder_counter >= 3):
+                    self.obstacle_cylinder_flag = False
+                    self.is_turning = False
+                    self.flag_turn = 1
+                    # self.turn_right()
+                    self.is_turning = True
+                    self.flag_turn = 0
+                    self.velocity_left = 5.0
+                    self.velocity_right = -5.0
+
+            if (self.light_detected and self.obstacle_box_flag):
+                self.avoid_left_box()
+                self.left_box_counter += 1
+
+                if (np.min(self.inputs[0:3]) < 0.3 and self.left_box_counter >= 3):
+                    self.obstacle_box_flag = False
+                    self.is_turning = False
+                    self.flag_turn = 1
+                    # self.turn_right()
+                    self.is_turning = True
+                    self.flag_turn = 0
+                    self.velocity_left = 5.0
+                    self.velocity_right = -5.0
+                    self.crossed_obstacles = True
+
+            if (self.crossed_obstacles and np.isclose(self.inputs[0], 0.76, atol=0.1) and np.isclose(self.inputs[1], 0.76, atol=0.1) and np.isclose(self.inputs[2], 0.76, atol=0.1)):
+                self.is_turning = True
+                self.flag_turn = 0
+                self.velocity_left = -2.0
+                self.velocity_right = 2.0
+
+            if (not self.light_detected and self.obstacle_box_flag):
+                self.avoid_box_obstacle()
+                self.right_box_counter += 1
+
+                if (np.min(self.inputs[0:3]) < 0.3 and self.right_box_counter >= 3):
+                    self.obstacle_box_flag = False
+                    self.is_turning = False
+                    self.flag_turn = 1
+                    # self.turn_right()
+                    self.is_turning = True
+                    self.flag_turn = 0
+                    self.velocity_left = -5.0
+                    self.velocity_right = 5.0
+
             # Turn
             if(self.flag_turn):
                 self.velocity_left = -0.3;
                 self.velocity_right = 0.3;
                 if(np.min(self.inputs[0:3])< 0.35):
                     self.flag_turn = 0
-            else:        
+            else:
+                self.obstacle_flag = False
                 # Check end of line
                 if((np.min(self.inputs[0:3])-np.min(self.inputsPrevious[0:3])) > 0.2):
                     self.flag_turn = 1
