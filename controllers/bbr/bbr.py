@@ -93,6 +93,7 @@ class Controller:
         self.get_emitter_data()
 
     def get_emitter_data(self):
+        # Read the data from the supervisor
         string_message = str("reward")
         string_message = string_message.encode("utf-8")
         self.emitter.send(string_message)
@@ -111,11 +112,11 @@ class Controller:
         self.velocity_right = -1.0
 
     def turn_left(self):
-        # Adjust these values as needed
         self.velocity_left = 1.0
         self.velocity_right = -1.0
 
     def is_at_distance(self, ir_value):
+        # Check if the robot is at a certain distance from the obstacle
         distance = self.distance_coef_a * math.pow(ir_value, self.distance_coef_b)
 
         if distance < 80:
@@ -126,7 +127,7 @@ class Controller:
             return False
 
     def is_on_line(self):
-        # Check all pairs (0,1), (0,2), and (1,2) from self.inputs[0:3]
+        # Check all pairs of sensors if they are on the line
         if (self.inputs[0] < 0.35 and self.inputs[1] < 0.35) or \
                 (self.inputs[0] < 0.35 and self.inputs[2] < 0.35) or \
                 (self.inputs[1] < 0.35 and self.inputs[2] < 0.35):
@@ -136,9 +137,11 @@ class Controller:
             return False
 
     def get_current_distance(self, ir_value):
+        # Calculate the distance from the IR sensor
         return self.distance_coef_a * math.pow(ir_value, self.distance_coef_b)
 
     def avoid_obstacle(self):
+        # Check the sides of the robot
         front_wall = self.get_current_distance(self.inputs[11]) < 80 or self.get_current_distance(self.inputs[17]) < 80
         left_wall = self.get_current_distance(self.inputs[16]) < 80
         right_wall = self.get_current_distance(self.inputs[13]) < 80
@@ -147,11 +150,16 @@ class Controller:
         no_wall = not (front_wall or left_wall or right_wall or back_wall_right or back_wall_left)
 
         if (not self.light_detected):
+
+            # If the robot has passed the obstacle
             if (self.is_on_line() and self.passed_white_area):
+
+                # Ensure that the robot is not too close to the wall
                 if (not (back_wall_right)):
                     self.velocity_left = -self.max_speed
                     self.velocity_right = self.max_speed
 
+                # If the robot is far enough from the wall, switch to line realign mode
                 if (back_wall_left or back_wall_right or no_wall):
                     print("Switch to line realign mode")
                     self.velocity_left = -self.max_speed
@@ -160,6 +168,8 @@ class Controller:
                     self.avoid_obstacle_mode = False
                     self.passed_white_area = False
                     self.is_turning = False
+
+            # If the robot is still traversing the obstacle
             else:
                 if (front_wall):
                     # Turn left in place
@@ -175,11 +185,15 @@ class Controller:
                         self.velocity_left = self.max_speed
                         self.velocity_right = self.max_speed / 4
         else:
+            # If the robot has passed the obstacle
             if (self.is_on_line() and self.passed_white_area):
+
+                # Ensure that the robot is not too close to the wall
                 if (not (back_wall_left)):
                     self.velocity_left = self.max_speed
                     self.velocity_right = -self.max_speed
 
+                # If the robot is far enough from the wall, switch to line realign mode
                 if (back_wall_left or back_wall_right or no_wall):
                     print("Switch to line realign mode")
                     self.velocity_left = self.max_speed
@@ -207,19 +221,20 @@ class Controller:
         self.right_motor.setVelocity(self.velocity_right)
 
     def realign(self):
+        # Check the sides of the robot
         back_wall_right = self.get_current_distance(self.inputs[14]) < 80
         back_wall_left = self.get_current_distance(self.inputs[15]) < 80
 
         back_wall_detected = back_wall_left or back_wall_right
-        realigned = True
 
         if back_wall_detected:
+            # Keep moving left and right until the robot is aligned with the line
             if (self.alternate_realign_counter % 2) == 0:
-                # Turn left in place
+                # Turn left
                 self.velocity_left = self.max_speed / 4
                 self.velocity_right = self.max_speed
             if (self.alternate_realign_counter % 2) == 1:
-                # Turn left in place
+                # Turn right
                 self.velocity_left = self.max_speed
                 self.velocity_right = self.max_speed / 4
 
@@ -237,8 +252,10 @@ class Controller:
             self.velocity_left = self.max_speed
             self.velocity_right = self.max_speed
 
+        # If the robot is back on the line, switch off the realign mode
         if (self.inputs[0] < 0.35) and (self.inputs[2] < 0.35):
 
+            # If both obstacles have been passed, switch to head to reward zone mode
             if(self.obstacles_passed == 1):
                 self.obstacles_passed += 1
                 self.realign_mode = False
@@ -259,6 +276,7 @@ class Controller:
             # Check for any possible collision
             if (ir_value > 0.4):
 
+                # Check for Obstacle, if so, switch to obstacle avoidance mode
                 if (self.is_at_distance(self.inputs[11])):
                     self.avoid_obstacle_mode = True
                     self.follow_line_mode = False
@@ -331,11 +349,6 @@ class Controller:
             ir_value = np.max(self.inputs[3:11])
             # Check for any possible collision
             if (ir_value > 0.4):
-
-                # if (self.is_at_distance(self.inputs[11])):
-                #     self.avoid_obstacle_mode = True
-                #     self.follow_line_mode = False
-                #     return
 
                 # Check for Light
                 if (self.inputs[3] == 0 and self.inputs[4] == 0 and self.inputs[9] == 0 and self.inputs[10] == 0):
@@ -421,7 +434,6 @@ class Controller:
             self.inputs.append((left - min_gs) / (max_gs - min_gs))  # 0
             self.inputs.append((center - min_gs) / (max_gs - min_gs))  # 1
             self.inputs.append((right - min_gs) / (max_gs - min_gs))  # 2
-            # print("Ground Sensors \n    left {} center {} right {}".format(self.inputs[0],self.inputs[1],self.inputs[2]))
 
             # Read Light Sensors
             for i in range(8):
@@ -433,7 +445,6 @@ class Controller:
                 if (temp < min_ls): temp = min_ls
                 # Save Data
                 self.inputs.append((temp - min_ls) / (max_ls - min_ls))  # 2 + i
-                # print("Light Sensors - Index: {}  Value: {}".format(i,self.light_sensors[i].getValue()))
 
             # Read Proximity Sensors
             for i in range(8):
@@ -445,7 +456,6 @@ class Controller:
                 if (temp < min_ls): temp = min_ls
                 # Save Data
                 self.inputs.append((temp - min_ls) / (max_ls - min_ls))
-                # print("Proximity Sensors - Index: {}  Value: {}".format(i,self.proximity_sensors[i].getValue()))
 
             # Smooth filter (Average)
             smooth = 10
@@ -457,7 +467,6 @@ class Controller:
                     self.get_emitter_data()
 
                 if self.follow_line_mode:
-                    # Compute and actuate
                     self.follow_line()
 
                 if self.realign_mode:
