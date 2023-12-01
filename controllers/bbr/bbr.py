@@ -1,5 +1,4 @@
 from controller import Robot
-from datetime import datetime
 import math
 import numpy as np
 
@@ -81,16 +80,19 @@ class Controller:
         self.flag_turn = 0
         self.light_detected = 0
         self.is_turning = 0
-        self.obstacle_cylinder_flag = 0
-        self.obstacle_box_flag = 0
-        self.left_cylinder_counter = 0
-        self.left_box_counter = 0
-        self.right_box_counter = 0
-        self.right_cylinder_counter = 0
-        self.crossed_obstacles = 0
         self.fork_flag = 0
 
         self.get_emitter_data()
+
+    def is_in_zone(self, ir_value, ir_value_previous):
+        current = self.get_current_distance(ir_value)
+        previous = self.get_current_distance(ir_value_previous)
+
+        # Check if the robot is at the reward zone
+        if current < 10 and np.isclose(current, previous, atol=0.1):
+            return True
+
+        return False
 
     def get_emitter_data(self):
         # Read the data from the supervisor
@@ -98,12 +100,11 @@ class Controller:
         string_message = string_message.encode("utf-8")
         self.emitter.send(string_message)
 
-
-        if (self.receiver.getQueueLength() > 0):
+        if self.receiver.getQueueLength() > 0:
             self.reward_coordinates = self.receiver.getString().split(',')
 
     def turn_right(self):
-        # Flags used to stop the robot from auto-correcting itself during the turn
+        # Flags used to stop the robot from autocorrecting itself during the turn
         self.is_turning = True
         self.flag_turn = 0
 
@@ -149,18 +150,18 @@ class Controller:
         back_wall_left = self.get_current_distance(self.inputs[15]) < 80
         no_wall = not (front_wall or left_wall or right_wall or back_wall_right or back_wall_left)
 
-        if (not self.light_detected):
+        if not self.light_detected:
 
             # If the robot has passed the obstacle
-            if (self.is_on_line() and self.passed_white_area):
+            if self.is_on_line() and self.passed_white_area:
 
                 # Ensure that the robot is not too close to the wall
-                if (not (back_wall_right)):
+                if not back_wall_right:
                     self.velocity_left = -self.max_speed
                     self.velocity_right = self.max_speed
 
                 # If the robot is far enough from the wall, switch to line realign mode
-                if (back_wall_left or back_wall_right or no_wall):
+                if back_wall_left or back_wall_right or no_wall:
                     print("Switch to line realign mode")
                     self.velocity_left = -self.max_speed
                     self.velocity_right = self.max_speed
@@ -171,7 +172,7 @@ class Controller:
 
             # If the robot is still traversing the obstacle
             else:
-                if (front_wall):
+                if front_wall:
                     # Turn left in place
                     self.velocity_left = -self.max_speed
                     self.velocity_right = self.max_speed
@@ -186,15 +187,15 @@ class Controller:
                         self.velocity_right = self.max_speed / 4
         else:
             # If the robot has passed the obstacle
-            if (self.is_on_line() and self.passed_white_area):
+            if self.is_on_line() and self.passed_white_area:
 
                 # Ensure that the robot is not too close to the wall
-                if (not (back_wall_left)):
+                if not back_wall_left:
                     self.velocity_left = self.max_speed
                     self.velocity_right = -self.max_speed
 
                 # If the robot is far enough from the wall, switch to line realign mode
-                if (back_wall_left or back_wall_right or no_wall):
+                if back_wall_left or back_wall_right or no_wall:
                     print("Switch to line realign mode")
                     self.velocity_left = self.max_speed
                     self.velocity_right = -self.max_speed
@@ -203,7 +204,7 @@ class Controller:
                     self.passed_white_area = False
                     self.is_turning = False
             else:
-                if (front_wall):
+                if front_wall:
                     # Turn left in place
                     self.velocity_left = self.max_speed
                     self.velocity_right = -self.max_speed
@@ -241,10 +242,10 @@ class Controller:
             self.alternate_realign_counter += 1
 
         # Moving too far away from the line on the right
-        if (self.inputs[2] > 0.7):
+        if self.inputs[2] > 0.7:
             self.velocity_left = self.max_speed / 4
             self.velocity_right = self.max_speed
-        elif (self.inputs[0] > 0.7):
+        elif self.inputs[0] > 0.7:
             self.velocity_left = self.max_speed
             self.velocity_right = self.max_speed / 4
 
@@ -256,40 +257,39 @@ class Controller:
         if (self.inputs[0] < 0.35) and (self.inputs[2] < 0.35):
 
             # If both obstacles have been passed, switch to head to reward zone mode
-            if(self.obstacles_passed == 1):
+            if self.obstacles_passed == 1:
                 self.obstacles_passed += 1
                 self.realign_mode = False
-            if (self.obstacles_passed == 0):
+            if self.obstacles_passed == 0:
                 self.obstacles_passed += 1
                 self.realign_mode = False
                 self.follow_line_mode = True
-
 
         self.left_motor.setVelocity(self.velocity_left)
         self.right_motor.setVelocity(self.velocity_right)
 
     def follow_line(self):
         # If robot is sensing something
-        if (len(self.inputs) > 0 and len(self.inputsPrevious) > 0):
+        if len(self.inputs) > 0 and len(self.inputsPrevious) > 0:
 
             ir_value = np.max(self.inputs[3:11])
             # Check for any possible collision
-            if (ir_value > 0.4):
+            if ir_value > 0.4:
 
                 # Check for Obstacle, if so, switch to obstacle avoidance mode
-                if (self.is_at_distance(self.inputs[11])):
+                if self.is_at_distance(self.inputs[11]):
                     self.avoid_obstacle_mode = True
                     self.follow_line_mode = False
                     return
 
                 # Check for Light
-                if (self.inputs[3] == 0 and self.inputs[4] == 0 and self.inputs[9] == 0 and self.inputs[10] == 0):
+                if self.inputs[3] == 0 and self.inputs[4] == 0 and self.inputs[9] == 0 and self.inputs[10] == 0:
                     self.light_detected = 1
-                elif (self.inputs[5] == 0):
+                elif self.inputs[5] == 0:
                     self.light_detected = 1
-                elif (self.inputs[8] == 0):
+                elif self.inputs[8] == 0:
                     self.light_detected = 1
-                elif (self.inputs[6] == 0 and self.inputs[7] == 0):
+                elif self.inputs[6] == 0 and self.inputs[7] == 0:
                     self.light_detected = 1
 
                 # Check for Fork
@@ -298,42 +298,42 @@ class Controller:
                     self.inputs[2], 0.76, atol=0.1)
 
                 # If light is on, go left
-                if (self.light_detected and self.fork_flag):
+                if self.light_detected and self.fork_flag:
                     print("Turning Left")
                     self.turn_left()
 
                 # If light is off, go right
-                if ((not self.light_detected) and self.fork_flag):
+                if (not self.light_detected) and self.fork_flag:
                     print("Turning Right")
                     self.turn_right()
 
             # Automatically adjust to follow line
-            if (self.flag_turn):
+            if self.flag_turn:
                 self.velocity_left = -0.3
                 self.velocity_right = 0.3
-                if (np.min(self.inputs[0:3]) < 0.35):
+                if np.min(self.inputs[0:3]) < 0.35:
                     self.flag_turn = 0
             else:
                 # Check end of line
-                if ((np.min(self.inputs[0:3]) - np.min(self.inputsPrevious[0:3])) > 0.2):
+                if (np.min(self.inputs[0:3]) - np.min(self.inputsPrevious[0:3])) > 0.2:
                     self.flag_turn = 1
                 else:
                     # Follow the line
-                    if (not self.is_turning):
+                    if not self.is_turning:
                         # left < center and left < right (i.e. left is on the line)
-                        if (self.inputs[2] > 0.7):
+                        if self.inputs[2] > 0.7:
                             # Turn left
                             self.velocity_left = self.max_speed / 4
                             self.velocity_right = self.max_speed
 
                         # center < left and center < right (i.e. center is on the line)
-                        elif (self.inputs[1] < self.inputs[0] and self.inputs[1] < self.inputs[2]):
+                        elif self.inputs[1] < self.inputs[0] and self.inputs[1] < self.inputs[2]:
                             # Go straight
                             self.velocity_left = 1
                             self.velocity_right = 1
 
                         # right < left and right < center (i.e. right is on the line)
-                        elif (self.inputs[0] > 0.7):
+                        elif self.inputs[0] > 0.7:
                             # Turn right
                             self.velocity_left = self.max_speed
                             self.velocity_right = self.max_speed / 4
@@ -344,20 +344,29 @@ class Controller:
 
     def head_to_reward_zone(self):
         # If robot is sensing something
-        if (len(self.inputs) > 0 and len(self.inputsPrevious) > 0):
+        if len(self.inputs) > 0 and len(self.inputsPrevious) > 0:
+
+            # Check if the robot is at the reward zone
+            if self.is_in_zone(self.inputs[11], self.inputsPrevious[11]):
+                print("Robot Stopped")
+
+                # Stop the robot
+                self.velocity_left = 0
+                self.velocity_right = 0
+                self.time_step = 0
 
             ir_value = np.max(self.inputs[3:11])
             # Check for any possible collision
-            if (ir_value > 0.4):
+            if ir_value > 0.4:
 
                 # Check for Light
-                if (self.inputs[3] == 0 and self.inputs[4] == 0 and self.inputs[9] == 0 and self.inputs[10] == 0):
+                if self.inputs[3] == 0 and self.inputs[4] == 0 and self.inputs[9] == 0 and self.inputs[10] == 0:
                     self.light_detected = 1
-                elif (self.inputs[5] == 0):
+                elif self.inputs[5] == 0:
                     self.light_detected = 1
-                elif (self.inputs[8] == 0):
+                elif self.inputs[8] == 0:
                     self.light_detected = 1
-                elif (self.inputs[6] == 0 and self.inputs[7] == 0):
+                elif self.inputs[6] == 0 and self.inputs[7] == 0:
                     self.light_detected = 1
 
                 # Check for Fork
@@ -366,42 +375,42 @@ class Controller:
                     self.inputs[2], 0.76, atol=0.1)
 
                 # If light is on, go left
-                if (self.light_detected and self.fork_flag):
+                if self.light_detected and self.fork_flag:
                     print("Turning Left")
                     self.turn_left()
 
                 # If light is off, go right
-                if ((not self.light_detected) and self.fork_flag):
+                if (not self.light_detected) and self.fork_flag:
                     print("Turning Right")
                     self.turn_right()
 
             # Automatically adjust to follow line
-            if (self.flag_turn):
+            if self.flag_turn:
                 self.velocity_left = -0.3
                 self.velocity_right = 0.3
-                if (np.min(self.inputs[0:3]) < 0.35):
+                if np.min(self.inputs[0:3]) < 0.35:
                     self.flag_turn = 0
             else:
                 # Check end of line
-                if ((np.min(self.inputs[0:3]) - np.min(self.inputsPrevious[0:3])) > 0.2):
+                if (np.min(self.inputs[0:3]) - np.min(self.inputsPrevious[0:3])) > 0.2:
                     self.flag_turn = 1
                 else:
                     # Follow the line
-                    if (not self.is_turning):
+                    if not self.is_turning:
                         # left < center and left < right (i.e. left is on the line)
-                        if (self.inputs[2] > 0.7):
+                        if self.inputs[2] > 0.7:
                             # Turn left
                             self.velocity_left = self.max_speed / 4
                             self.velocity_right = self.max_speed
 
                         # center < left and center < right (i.e. center is on the line)
-                        elif (self.inputs[1] < self.inputs[0] and self.inputs[1] < self.inputs[2]):
+                        elif self.inputs[1] < self.inputs[0] and self.inputs[1] < self.inputs[2]:
                             # Go straight
                             self.velocity_left = 1
                             self.velocity_right = 1
 
                         # right < left and right < center (i.e. right is on the line)
-                        elif (self.inputs[0] > 0.7):
+                        elif self.inputs[0] > 0.7:
                             # Turn right
                             self.velocity_left = self.max_speed
                             self.velocity_right = self.max_speed / 4
@@ -409,6 +418,7 @@ class Controller:
         self.left_motor.setVelocity(self.velocity_left)
         self.right_motor.setVelocity(self.velocity_right)
         self.is_turning = False
+
     def run_robot(self):
         # Main Loop
         count = 0
@@ -423,12 +433,12 @@ class Controller:
             # Adjust Values
             min_gs = 0
             max_gs = 1000
-            if (left > max_gs): left = max_gs
-            if (center > max_gs): center = max_gs
-            if (right > max_gs): right = max_gs
-            if (left < min_gs): left = min_gs
-            if (center < min_gs): center = min_gs
-            if (right < min_gs): right = min_gs
+            if left > max_gs: left = max_gs
+            if center > max_gs: center = max_gs
+            if right > max_gs: right = max_gs
+            if left < min_gs: left = min_gs
+            if center < min_gs: center = min_gs
+            if right < min_gs: right = min_gs
 
             # Save Data
             self.inputs.append((left - min_gs) / (max_gs - min_gs))  # 0
@@ -441,8 +451,8 @@ class Controller:
                 # Adjust Values
                 min_ls = 0
                 max_ls = 4300
-                if (temp > max_ls): temp = max_ls
-                if (temp < min_ls): temp = min_ls
+                if temp > max_ls: temp = max_ls
+                if temp < min_ls: temp = min_ls
                 # Save Data
                 self.inputs.append((temp - min_ls) / (max_ls - min_ls))  # 2 + i
 
@@ -452,18 +462,18 @@ class Controller:
                 # Adjust Values
                 min_ls = 0
                 max_ls = 4300
-                if (temp > max_ls): temp = max_ls
-                if (temp < min_ls): temp = min_ls
+                if temp > max_ls: temp = max_ls
+                if temp < min_ls: temp = min_ls
                 # Save Data
                 self.inputs.append((temp - min_ls) / (max_ls - min_ls))
 
             # Smooth filter (Average)
             smooth = 10
-            if (count == smooth):
+            if count == smooth:
                 inputs_avg = [sum(x) for x in zip(*inputs_avg)]
                 self.inputs = [x / smooth for x in inputs_avg]
 
-                if(self.reward_coordinates is None):
+                if self.reward_coordinates is None:
                     self.get_emitter_data()
 
                 if self.follow_line_mode:
@@ -475,12 +485,11 @@ class Controller:
                 if self.avoid_obstacle_mode:
                     self.avoid_obstacle()
 
-                if (self.obstacles_passed == 2):
+                if self.obstacles_passed == 2:
                     self.go_to_reward = True
 
-                if (self.go_to_reward):
+                if self.go_to_reward:
                     self.head_to_reward_zone()
-
 
                 # Reset
                 count = 0
