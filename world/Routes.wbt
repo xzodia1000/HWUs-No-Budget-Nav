@@ -10,8 +10,20 @@ EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/project
 WorldInfo {
 }
 Viewpoint {
-  orientation 0.5475447355012419 -0.14078443199327947 -0.8248481716856775 3.5595632161517234
-  position 0.6276090648209179 -0.9270992597260687 2.9791525079072128
+  orientation 0.27587059072527803 -0.1027912465871939 -0.9556826757862343 3.8257689382025455
+  position 1.705209671468764 -1.5734855034445767 1.4213144113195089
+}
+Robot {
+  children [
+    Emitter {
+      channel 19
+    }
+    Receiver {
+      channel 20
+    }
+  ]
+  controller "bbr_supervisor"
+  supervisor TRUE
 }
 RectangleArena {
   translation -0.0309432 0.161318 0
@@ -46,17 +58,15 @@ WoodenBox {
   size 0.1 0.1 0.1
   mass 1
 }
-TexturedBackground {
+DEF Controller TexturedBackground {
   texture "empty_office"
 }
 E-puck {
-  hidden position_0_0 11599.808591552726
-  hidden position_0_1 12783.05916315502
-  hidden rotation_1 0 1 0 1.0485144992096478
-  hidden rotation_2 0 0.9999999999999999 0 3.0602483517407384
   translation -0.697979 -0.643382 -0.000230239
   rotation -9.559349905263082e-05 -0.0001033569989756915 0.9999999900896067 1.70692
-  controller "<extern>"
+  controller "bbr"
+  emitter_channel 20
+  receiver_channel 19
   groundSensorsSlot [
     E-puckGroundSensors {
     }
@@ -157,7 +167,7 @@ DEF OBS_Cyn1 Solid {
     radius 0.05
   }
 }
-SpotLight {
+DEF SPOTLIGHT SpotLight {
   attenuation 0 0 2
   beamWidth 0.1
   cutOffAngle 0.16
