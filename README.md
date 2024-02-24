@@ -1,1 +1,1 @@
-# HWUs-No-Budget-Nav
+# HWUs-No-Budget-Navigator
